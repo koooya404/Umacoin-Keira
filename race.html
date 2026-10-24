@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif; color: #16202e; }
+  .wrap { border-radius: 10px; overflow: hidden; border: 1px solid #c9d6e4; background: #fff; }
+  .sky { position: relative; height: 92px; background: linear-gradient(#9fd3ff, #e4f3ff); overflow: hidden; }
+  .cloud { position: absolute; background: #fff; border-radius: 40px; opacity: .9; }
+  .cloud::before, .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+  .cloud.c1 { width: 70px; height: 18px; left: 8%; top: 14px; animation: drift 60s linear infinite; }
+  .cloud.c1::before { width: 28px; height: 28px; left: 10px; top: -14px; }
+  .cloud.c1::after { width: 22px; height: 22px; left: 36px; top: -9px; }
+  .cloud.c2 { width: 90px; height: 20px; left: 62%; top: 30px; animation: drift 80s linear infinite reverse; }
+  .cloud.c2::before { width: 34px; height: 34px; left: 14px; top: -18px; }
+  .cloud.c2::after { width: 26px; height: 26px; left: 50px; top: -10px; }
+  @keyframes drift { from { transform: translateX(-20px); } to { transform: translateX(40px); } }
+  .stand { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; }
+  .title { position: absolute; left: 12px; top: 8px; font-weight: 700; font-size: 14px; color: #17406b; letter-spacing: .05em; }
+  .track { position: relative; background: #3f9b45; }
+  .lane { position: relative; height: 30px; }
+  .lane:nth-child(odd) { background: #49a84f; }
+  .lane:nth-child(even) { background: #3f9b45; }
+  .bib { position: absolute; left: 4px; top: 5px; width: 22px; height: 20px; border-radius: 4px; border: 1.5px solid #fff; color: #fff; font: 700 13px/17px Arial, sans-serif; text-align: center; text-shadow: 0 0 2px #000, 0 0 2px #000; z-index: 3; }
+  .gate { position: absolute; left: 34px; top: 0; bottom: 0; width: 0; border-left: 2px dashed rgba(255,255,255,.7); }
+  .horse { position: absolute; left: 0; top: -9px; width: 51px; height: 34px; will-change: transform; }
+  .horse img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rank { position: absolute; right: 6px; top: 6px; font: 700 13px/18px Arial, sans-serif; color: #fff; text-shadow: 0 0 3px #000; opacity: 0; z-index: 3; }
+  .rank.on { opacity: 1; } .rank.top { color: #ffe066; }
+  .goal { position: absolute; top: 0; bottom: 0; right: 52px; width: 8px; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 8px 8px; z-index: 2; }
+  .rail { height: 5px; background: #fff; border-top: 1px solid #cfd8e3; border-bottom: 1px solid #cfd8e3; }
+  .live { padding: 8px 12px; min-height: 76px; background: #f4f8fc; border-top: 1px solid #c9d6e4; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+  .live .head { font-weight: 700; color: #b3261e; }
+  .live .head.done { color: #1f7a3d; }
+  .tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 10px; background: #f4f8fc; }
+  .tools small { color: #5b6b7e; }
+  button { font: inherit; border: 1px solid #9db0c5; background: #fff; border-radius: 6px; padding: 5px 10px; cursor: pointer; color: #16202e; }
+  button:focus-visible { outline: 3px solid #1f7a3d; outline-offset: 2px; }
+  .call { position: absolute; inset: 0; display: grid; place-items: center; font: 700 34px/1 Arial, sans-serif; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); z-index: 5; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .cloud { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sky">
+    <div class="cloud c1"></div><div class="cloud c2"></div>
+    <div class="title" id="title">パドックから本馬場へ</div>
+    <svg class="stand" viewBox="0 0 400 56" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="0" y="22" width="400" height="34" fill="#8da2b8"/>
+      <rect x="0" y="22" width="400" height="5" fill="#6c8199"/>
+      <g fill="#c8d6e5"><!--STAND_WINDOWS--></g>
+      <rect x="150" y="6" width="100" height="18" fill="#a9bacb"/>
+      <rect x="150" y="6" width="100" height="3" fill="#6c8199"/>
+      <path d="M200,6 L200,0" stroke="#6c8199" stroke-width="1.5"/>
+      <path d="M200,0 L212,3 L200,6 Z" fill="#e8453c"/>
+    </svg>
+  </div>
+  <div class="rail"></div>
+  <div class="track" id="track">
+    <div class="goal" id="goal"></div>
+  </div>
+  <div class="rail"></div>
+  <div class="live" id="live"></div>
+  <div class="tools"><small>頭の上の数字は馬番、勝負服の色は脚質です。</small><button id="replay" type="button">もう一度見る</button></div>
+</div>
+<div class="call" id="call" style="display:none"></div>
+
+<script>
+const DATA = /*DATA*/null;
+const CURVE = { "逃げ": 0.72, "先行": 0.88, "差し": 1.2, "追い込み": 1.5 };
+const SILK = { "逃げ": "#e8453c", "先行": "#ff9f1c", "差し": "#2fb35f", "追い込み": "#3d8fe0" };
+const H = DATA.horses;
+const track = document.getElementById('track'), goal = document.getElementById('goal');
+const live = document.getElementById('live'), call = document.getElementById('call');
+document.getElementById('title').textContent = DATA.title || '';
+
+const rows = H.map(h => {
+  const lane = document.createElement('div'); lane.className = 'lane';
+  lane.innerHTML = '<div class="gate"></div>';
+  const bib = document.createElement('div'); bib.className = 'bib'; bib.textContent = h.no; bib.style.background = SILK[h.style];
+  const rk = document.createElement('div'); rk.className = 'rank';
+  const box = document.createElement('div'); box.className = 'horse';
+  const a = new Image(), b = new Image(); a.src = h.img0; b.src = h.img1; a.alt = ''; b.alt = '';
+  box.append(a, b); lane.append(bib, box, rk); track.insertBefore(lane, goal);
+  return { h, box, a, b, rk, last: 0, ph: Math.random() * 6.28, amp: 0.01 + Math.random() * 0.012 };
+});
+
+function progress(r, t) {
+  const x = Math.min(1, t / r.h.T);
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const v = Math.pow(x, CURVE[r.h.style]) + r.amp * Math.sin(r.ph + x * 13) * x * (1 - x);
+  return Math.min(1, Math.max(0, v));
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+let raf = 0, t0 = 0, running = false;
+function layout() { return { w: track.clientWidth }; }
+function draw(t) {
+  const { w } = layout();
+  const startX = 34, finishX = w - 52, horseW = 51;
+  const span = finishX - startX - horseW + 14;
+  let done = 0;
+  rows.forEach(r => {
+    const p = Math.max(r.last, progress(r, t)); r.last = p;
+    const running = t > 0 && t < r.h.T;
+    const bob = running ? Math.sin(t * 16 + r.ph) * 1.6 : 0;
+    r.box.style.transform = 'translate(' + (startX + 4 + p * span) + 'px,' + bob + 'px)';
+    const f = running ? (Math.floor(t * 8 + r.ph) % 2) : 0;
+    r.a.style.visibility = f === 0 ? 'visible' : 'hidden';
+    r.b.style.visibility = f === 1 ? 'visible' : 'hidden';
+    if (t >= r.h.T) { done++; r.rk.textContent = r.h.rank + '着'; r.rk.className = 'rank on' + (r.h.rank <= 3 ? ' top' : ''); }
+  });
+  const ord = rows.slice().sort((x, y) => (y.last - x.last) || (x.h.rank - y.h.rank)).slice(0, 3);
+  const head = done < rows.length ? '<div class="head">● 実況</div>' : '<div class="head done">ゴール!結果は下のボタンから</div>';
+  live.innerHTML = head + ord.map((r, i) => '<div>' + (i + 1) + '. ' + r.h.no + '番 ' + esc(r.h.name) + ' <small style="color:#5b6b7e">' + r.h.style + '</small></div>').join('');
+  return done === rows.length;
+}
+function loop(now) {
+  if (!running) return;
+  const t = (now - t0) / 1000;
+  const finished = draw(t) && t > rows[rows.length - 1].h.T + 0.3;
+  if (finished) { running = false; return; }
+  raf = requestAnimationFrame(loop);
+}
+function start() {
+  cancelAnimationFrame(raf);
+  rows.forEach(r => { r.last = 0; r.rk.className = 'rank'; });
+  draw(0);
+  call.style.display = 'grid';
+  const seq = ['位置について', 'よーい', 'スタート!'];
+  let i = 0;
+  call.textContent = seq[0];
+  const timer = setInterval(() => {
+    i++;
+    if (i < seq.length) { call.textContent = seq[i]; return; }
+    clearInterval(timer);
+    call.style.display = 'none';
+    running = true; t0 = performance.now(); raf = requestAnimationFrame(loop);
+  }, 700);
+}
+// ゲートに入る前の並び(1番の馬が内ラチ側)
+call.style.position = 'absolute';
+document.querySelector('.wrap').style.position = 'relative';
+document.querySelector('.wrap').appendChild(call);
+document.getElementById('replay').onclick = start;
+window.addEventListener('resize', () => { if (!running) draw(9999); });
+start();
+</script>
+</body>
+</html>
